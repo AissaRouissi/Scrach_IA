@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrach_IA - Editor de Bloques Visual con IA</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app" class="easy-mode">
+
+    <!-- ===== HEADER / BARRA SUPERIOR ===== -->
+    <header class="app-header">
+      <div class="app-logo">
+        <span class="logo-icon">🧩</span>
+        <span>Scrach_IA</span>
+      </div>
+
+      <div class="header-divider"></div>
+
+      <!-- Selector de modos -->
+      <div class="mode-selector">
+        <button class="mode-btn active" data-mode="games" title="Modo Juegos">
+          🎮 <span class="mode-name">Juegos</span>
+        </button>
+        <button class="mode-btn" data-mode="art" title="Modo Arte">
+          🎨 <span class="mode-name">Arte</span>
+        </button>
+        <button class="mode-btn" data-mode="music" title="Modo Música">
+          🎵 <span class="mode-name">Música</span>
+        </button>
+        <button class="mode-btn" data-mode="stories" title="Modo Historias">
+          📖 <span class="mode-name">Historias</span>
+        </button>
+        <button class="mode-btn" data-mode="robot" title="Modo Robot/IoT">
+          🤖 <span class="mode-name">Robot</span>
+        </button>
+      </div>
+
+      <div class="header-divider"></div>
+
+      <!-- Selector de dificultad -->
+      <div class="difficulty-selector">
+        <button class="difficulty-btn active" data-difficulty="easy">🟢 Fácil</button>
+        <button class="difficulty-btn" data-difficulty="hard">🔴 Difícil</button>
+      </div>
+
+      <div class="header-divider"></div>
+
+      <!-- Acciones -->
+      <div class="header-actions">
+        <input type="text" id="project-name" value="Mi Proyecto" placeholder="Nombre del proyecto">
+        <button class="btn-icon" id="save-btn" title="Guardar (Ctrl+S)">💾 Guardar</button>
+        <button class="btn-icon" id="load-btn" title="Cargar proyecto">📂 Cargar</button>
+        <button class="btn-icon" id="run-btn" title="Ejecutar (F5)">▶ Ejecutar</button>
+        <button class="btn-icon" id="stop-btn" title="Detener">⏹</button>
+      </div>
+    </header>
+
+    <!-- ===== ÁREA PRINCIPAL ===== -->
+    <div class="main-area">
+
+      <!-- Panel izquierdo: Paleta de bloques -->
+      <aside class="panel-left">
+        <div class="panel-left-header">
+          <h3>🧩 Bloques</h3>
+          <input
+            type="text"
+            class="search-blocks"
+            id="search-blocks"
+            placeholder="🔍 Buscar bloque..."
+            oninput="filterBlocks(this.value)"
+          >
+        </div>
+        <div id="blocks-palette">
+          <!-- Generado dinámicamente por editor.js -->
+        </div>
+      </aside>
+
+      <!-- Workspace central: Canvas de bloques -->
+      <main class="workspace-container" id="workspace-container">
+        <!-- Inner: recibe los bloques y el transform de pan/zoom -->
+        <div class="workspace-inner" id="workspace-inner"></div>
+
+        <!-- Hint cuando está vacío -->
+        <div class="workspace-empty-hint" id="workspace-hint">
+          <div class="hint-icon">🧩</div>
+          <p>Arrastra bloques aquí para empezar</p>
+          <p>o haz clic en un bloque del panel izquierdo</p>
+        </div>
+
+        <!-- Toolbar del workspace -->
+        <div class="workspace-toolbar">
+          <button id="zoom-reset-btn" title="Restablecer zoom">🔍 100%</button>
+          <span id="zoom-level">100%</span>
+          <button id="clear-workspace-btn" title="Limpiar workspace">🗑️ Limpiar</button>
+          <button id="reset-btn" title="Resetear ejecución">↺ Reset</button>
+        </div>
+      </main>
+
+      <!-- Panel derecho: Preview + IA + Tips -->
+      <aside class="panel-right">
+        <!-- Tabs -->
+        <div class="panel-tabs">
+          <button class="panel-tab active" data-panel="preview">👁️ Vista</button>
+          <button class="panel-tab" data-panel="ia">🤖 IA</button>
+          <button class="panel-tab" data-panel="tips">💡 Tips</button>
+        </div>
+
+        <!-- Panel Preview -->
+        <div class="panel-content active" id="panel-preview">
+          <!-- Canvas de preview -->
+          <div style="padding:10px">
+            <div id="preview-area">
+              <canvas id="preview-canvas"></canvas>
+            </div>
+
+            <!-- Controles de preview -->
+            <div class="preview-controls">
+              <button id="run-btn-preview" onclick="document.getElementById('run-btn').click()">▶ Ejecutar</button>
+              <button onclick="executor && executor.pause()">⏸ Pausar</button>
+              <button onclick="executor && executor.reset()">↺ Reset</button>
+            </div>
+
+            <!-- Log de ejecución -->
+            <div class="execution-section">
+              <h4>📋 Registro de Ejecución</h4>
+              <div id="execution-log">
+                <div class="log-entry" style="color: var(--text-muted)">Esperando ejecución...</div>
+              </div>
+            </div>
+
+            <!-- Variables -->
+            <div class="execution-section" style="margin-top:8px">
+              <h4>📦 Variables</h4>
+              <div id="variables-display">
+                <div class="no-vars">Sin variables</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel IA -->
+        <div class="panel-content" id="panel-ia">
+          <div style="padding:10px; display:flex; flex-direction:column; height:100%; overflow:hidden">
+            <!-- Header IA -->
+            <div class="ai-header">
+              <div class="ai-badge">🤖 IA</div>
+              <h3>Generador de Bloques</h3>
+            </div>
+
+            <!-- Chat de IA -->
+            <div id="ai-chat-messages">
+              <!-- Los mensajes se añaden dinámicamente -->
+            </div>
+
+            <!-- Input de prompt -->
+            <div class="ai-input-area">
+              <textarea
+                id="ai-prompt-input"
+                placeholder="Describe qué quieres que haga tu proyecto..."
+                rows="2"
+              ></textarea>
+              <button id="ai-send-btn" title="Enviar (Enter)">→</button>
+            </div>
+
+            <!-- Sugerencias rápidas -->
+            <div class="ai-suggestions">
+              <h4>💡 Prueba estos:</h4>
+              <button class="ai-suggestion">🎮 Crear un juego de rebote</button>
+              <button class="ai-suggestion">🔄 Repetir animación 10 veces</button>
+              <button class="ai-suggestion">💬 Decir hola al iniciar</button>
+              <button class="ai-suggestion">🤖 Generar texto con IA</button>
+              <button class="ai-suggestion">🎵 Tocar una melodía</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel Tips -->
+        <div class="panel-content" id="panel-tips">
+          <div style="padding:10px; overflow-y:auto; height:100%">
+            <div class="mode-info">
+              <div id="current-mode-indicator">🎮 Juegos</div>
+              <p class="mode-description">Crear juegos interactivos: plataformas, puzzles, arcade</p>
+            </div>
+
+            <ul id="mode-tips">
+              <!-- Generado dinámicamente -->
+            </ul>
+
+            <!-- Atajos de teclado -->
+            <div class="example-projects" style="margin-top:12px">
+              <h4>⌨️ Atajos de Teclado</h4>
+              <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--text-muted)">
+                <div style="display:flex; justify-content:space-between; padding:3px 0">
+                  <span>Ejecutar</span><kbd style="background:var(--bg-input); padding:1px 5px; border-radius:3px">F5</kbd>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0">
+                  <span>Guardar</span><kbd style="background:var(--bg-input); padding:1px 5px; border-radius:3px">Ctrl+S</kbd>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0">
+                  <span>Eliminar bloque</span><kbd style="background:var(--bg-input); padding:1px 5px; border-radius:3px">Del</kbd>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0">
+                  <span>Zoom</span><kbd style="background:var(--bg-input); padding:1px 5px; border-radius:3px">Rueda</kbd>
+                </div>
+              </div>
+            </div>
+
+            <!-- Proyecto de ejemplo -->
+            <div class="example-projects" style="margin-top:12px">
+              <h4>🎯 Proyecto de Ejemplo</h4>
+              <button id="example-project-btn" style="margin-top:6px">
+                ✨ Cargar ejemplo del modo actual
+              </button>
+            </div>
+
+            <!-- Info de bloques -->
+            <div style="margin-top:12px">
+              <h4 style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px">📊 Estadísticas</h4>
+              <div style="font-size:11px; color:var(--text-secondary)">
+                <div style="display:flex; justify-content:space-between; padding:2px 0">
+                  <span>Bloques totales:</span>
+                  <strong id="stat-total-blocks">0</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:2px 0">
+                  <span>Categorías:</span>
+                  <strong>9</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:2px 0">
+                  <span>Bloques en workspace:</span>
+                  <strong id="stat-workspace-blocks">0</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/blocks.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/ai-engine.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="js/executor.js"></script>
+  <script src="js/app.js"></script>
+
+  <script>
+    // Funciones auxiliares del HTML
+
+    // Filtrar bloques en la paleta
+    function filterBlocks(query) {
+      const q = query.toLowerCase().trim();
+      document.querySelectorAll('.palette-block').forEach(el => {
+        const text = el.textContent.toLowerCase();
+        el.style.display = (q === '' || text.includes(q)) ? '' : 'none';
+      });
+
+      // Mostrar/ocultar categorías vacías
+      document.querySelectorAll('.palette-category').forEach(cat => {
+        const visible = Array.from(cat.querySelectorAll('.palette-block'))
+          .some(el => el.style.display !== 'none');
+        cat.style.display = visible ? '' : 'none';
+      });
+    }
+
+    // Actualizar estadísticas periódicamente
+    setInterval(() => {
+      if (window.editor) {
+        const stat = document.getElementById('stat-workspace-blocks');
+        if (stat) stat.textContent = window.editor.blocks.length;
+
+        // Ocultar hint si hay bloques
+        const hint = document.getElementById('workspace-hint');
+        if (hint) hint.style.display = window.editor.blocks.length > 0 ? 'none' : '';
+      }
+      if (typeof BLOCKS_DEFINITION !== 'undefined') {
+        const stat = document.getElementById('stat-total-blocks');
+        if (stat) stat.textContent = BLOCKS_DEFINITION.length;
+      }
+    }, 500);
+
+    // Asegurar que el canvas de preview tenga el tamaño correcto
+    window.addEventListener('load', () => {
+      const canvas = document.getElementById('preview-canvas');
+      if (canvas) {
+        canvas.width = canvas.offsetWidth || 280;
+        canvas.height = canvas.offsetHeight || 210;
+      }
+    });
+  </script>
+</body>
+</html>
